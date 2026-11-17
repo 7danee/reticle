@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.6.0
+
+### Added
+- **Vollbild-Hinweis:** Läuft ein Spiel im exklusiven Vollbild, in dem kein Overlay sichtbar ist, meldet reticle das einmal je Spiel und rät zu „Randloses Fenster“. Abschaltbar unter Optionen → Vollbild.
+
 ## v0.5.0 – erste Veröffentlichung
 
 ### Overlay

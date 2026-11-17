@@ -23,6 +23,8 @@ pub struct Config {
     pub hide_from_capture: bool,
     /// Show the crosshair only while a program with a profile is in the foreground.
     pub only_in_games: bool,
+    /// Notify once per game when it runs in exclusive fullscreen, where overlays are hidden.
+    pub warn_fullscreen: bool,
     pub editor_theme: Theme,
     /// Behaviour of the default profile when aiming (right mouse button).
     pub aim: AimMode,
@@ -41,6 +43,7 @@ impl Default for Config {
             offset_y: 0,
             hide_from_capture: false,
             only_in_games: false,
+            warn_fullscreen: true,
             editor_theme: Theme::Dark,
             aim: AimMode::Off,
             crosshair: Crosshair::default(),

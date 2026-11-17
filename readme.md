@@ -15,7 +15,7 @@ Schlankes Crosshair-Overlay für Windows, in Rust. Läuft im Infobereich der Tas
 
 > Nutzung in Online-Spielen auf eigenes Risiko: Kein Hersteller gibt eine offizielle Freigabe für Crosshair-Overlays. Siehe [Hinweise](#hinweise).
 
-Stand: **v0.5.0**.
+Stand: **v0.6.0**.
 
 ## Benutzung
 
@@ -101,6 +101,7 @@ Zur Profilerkennung liest reticle nur den Programmnamen des Fensters im Vordergr
 
 - **Anticheat:** Ein externes Overlay ist der unauffälligste Weg, aber kein Hersteller gibt dafür eine offizielle Freigabe. Nutzung auf eigenes Risiko, besonders bei Valorant (Vanguard) und in Ligen.
 - **SmartScreen:** Die .exe ist nicht signiert. Beim ersten Start „Weitere Informationen" → „Trotzdem ausführen".
+- **Exklusives Vollbild:** Darüber ist kein Overlay sichtbar. reticle erkennt das und meldet es einmal je Spiel (abschaltbar unter Optionen → Vollbild). Im Spiel „Randloses Fenster“ einstellen.
 - Overlay und Einstellungsfenster laufen jeweils nur einmal.
 
 ## Bauen

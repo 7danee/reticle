@@ -7,6 +7,7 @@
 //! active profile hides the crosshair when aiming.
 
 use std::cell::{Cell, RefCell};
+use std::collections::HashSet;
 use std::time::SystemTime;
 
 use windows::Win32::Foundation::{HANDLE, HINSTANCE, HWND, LPARAM, LRESULT, POINT, WAIT_OBJECT_0, WPARAM};
@@ -20,7 +21,7 @@ use windows::Win32::UI::Accessibility::{HWINEVENTHOOK, SetWinEventHook, UnhookWi
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetAsyncKeyState, HOT_KEY_MODIFIERS, MOD_NOREPEAT, RegisterHotKey, UnregisterHotKey, VK_RBUTTON,
 };
-use windows::Win32::UI::Shell::ShellExecuteW;
+use windows::Win32::UI::Shell::{QUNS_RUNNING_D3D_FULL_SCREEN, SHQueryUserNotificationState, ShellExecuteW};
 use windows::Win32::UI::WindowsAndMessaging::{
     AppendMenuW, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu, DestroyWindow, DispatchMessageW,
     EVENT_SYSTEM_FOREGROUND, GetCursorPos, GetForegroundWindow, KillTimer, MF_CHECKED, MF_DEFAULT, MF_SEPARATOR,
@@ -50,6 +51,9 @@ const HOTKEY_TOGGLE: i32 = 1;
 /// crosshair is gone before any aim-down-sights animation finishes.
 const TIMER_AIM: usize = 2;
 const AIM_MS: u32 = 15;
+/// One-shot checks for exclusive fullscreen after a program comes to the front.
+const TIMER_FULLSCREEN: usize = 3;
+const FULLSCREEN_CHECKS_MS: [u32; 2] = [3_000, 12_000];
 
 const MENU_EDITOR: usize = 1;
 const MENU_TOGGLE: usize = 2;
@@ -92,6 +96,10 @@ struct App {
     tray_state: Option<(bool, String)>,
     /// Monitor of the last game, used when the monitor is set to automatic.
     game_monitor: Option<overlay::Monitor>,
+    /// Pending exclusive-fullscreen checks for the current foreground program.
+    fullscreen_checks_left: usize,
+    /// Programs already warned about in this session (lowercase file names).
+    fullscreen_warned: HashSet<String>,
 }
 
 /// Starts the settings window as its own process.
@@ -150,6 +158,8 @@ pub fn run() -> Result<()> {
         own_exe: process::own_exe().unwrap_or_default().to_lowercase(),
         tray_state: None,
         game_monitor: None,
+        fullscreen_checks_left: 0,
+        fullscreen_warned: HashSet::new(),
     };
     app.tray.add();
     app.apply(None);
@@ -325,6 +335,7 @@ impl App {
             if switched || moved {
                 self.render_overlay();
             }
+            self.schedule_fullscreen_check();
         }
         self.update_aim_timer();
         self.sync_visibility();
@@ -348,6 +359,56 @@ impl App {
         }
         self.game_monitor = Some(monitor);
         true
+    }
+
+    /// A game in exclusive fullscreen hides every overlay. Some games switch a few seconds
+    /// after getting focus, so the state is checked twice (after 3 s and 15 s), once per
+    /// program and session. Nothing runs while no new program comes to the front.
+    fn schedule_fullscreen_check(&mut self) {
+        unsafe {
+            let _ = KillTimer(Some(self.control), TIMER_FULLSCREEN);
+        }
+        self.fullscreen_checks_left = 0;
+        let Some(exe) = self.foreground.as_deref() else { return };
+        let exe = exe.to_lowercase();
+        if !self.config.warn_fullscreen || exe == "explorer.exe" || self.fullscreen_warned.contains(&exe) {
+            return;
+        }
+        self.fullscreen_checks_left = FULLSCREEN_CHECKS_MS.len();
+        unsafe {
+            SetTimer(Some(self.control), TIMER_FULLSCREEN, FULLSCREEN_CHECKS_MS[0], None);
+        }
+    }
+
+    fn check_fullscreen(&mut self) {
+        unsafe {
+            let _ = KillTimer(Some(self.control), TIMER_FULLSCREEN);
+        }
+        let Some(exe) = self.foreground.clone() else { return };
+        if self.own_in_front || self.fullscreen_checks_left == 0 || !self.config.warn_fullscreen {
+            return;
+        }
+        let exclusive = unsafe { SHQueryUserNotificationState() }.is_ok_and(|s| s == QUNS_RUNNING_D3D_FULL_SCREEN);
+        if exclusive {
+            self.fullscreen_checks_left = 0;
+            self.fullscreen_warned.insert(exe.to_lowercase());
+            self.tray.notify(
+                "Exklusives Vollbild erkannt",
+                &format!(
+                    "{exe} läuft im exklusiven Vollbild und kann das Crosshair verdecken. \
+                     Stell im Spiel „Randloses Fenster“ ein."
+                ),
+                true,
+            );
+            return;
+        }
+        self.fullscreen_checks_left -= 1;
+        let next = FULLSCREEN_CHECKS_MS.len() - self.fullscreen_checks_left;
+        if let Some(&delay) = FULLSCREEN_CHECKS_MS.get(next) {
+            unsafe {
+                SetTimer(Some(self.control), TIMER_FULLSCREEN, delay, None);
+            }
+        }
     }
 
     /// The right-button check only runs while it can matter.
@@ -516,6 +577,9 @@ fn show_menu(hwnd: HWND) {
 
 unsafe extern "system" fn control_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     match msg {
+        WM_TIMER if wparam.0 == TIMER_FULLSCREEN => {
+            with_app(App::check_fullscreen);
+        }
         WM_TIMER if wparam.0 == TIMER_AIM => {
             with_app(App::check_aim);
         }

@@ -1,6 +1,6 @@
 [package]
 name = "reticle"
-version = "0.5.0"
+version = "0.6.0"
 description = "Lightweight crosshair overlay for Windows"
 license-file = "LICENSE"
 repository = "https://github.com/7danee/reticle"

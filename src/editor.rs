@@ -1003,6 +1003,10 @@ impl Editor {
             ui.label("Anzeigen");
             ui.checkbox(&mut self.config.only_in_games, "nur in Spielen mit Profil");
             ui.end_row();
+            ui.label("Vollbild");
+            ui.checkbox(&mut self.config.warn_fullscreen, "Hinweis bei exklusivem Vollbild")
+                .on_hover_text("Meldet einmal je Spiel, wenn es im exklusiven Vollbild läuft. Dort ist kein Overlay sichtbar; im Spiel auf „Randloses Fenster“ stellen.");
+            ui.end_row();
             ui.label("Stream");
             ui.checkbox(&mut self.config.hide_from_capture, "in Aufnahmen verstecken");
             ui.end_row();
